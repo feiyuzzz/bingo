@@ -8,64 +8,54 @@ import (
 
 type Core struct {
 	// 双层map，一级map存放http请求方式，二级map存放对用的Handler
-	router map[string]map[string]ControllerHandler
+	router map[string]*Tree
 }
 
 func NewCore() *Core {
-
-	// 定义二级 map
-	getRouter := map[string]ControllerHandler{}
-	postRouter := map[string]ControllerHandler{}
-	putRouter := map[string]ControllerHandler{}
-	deleteRouter := map[string]ControllerHandler{}
-
-	// 二级 map 存入一级 map
-	router := map[string]map[string]ControllerHandler{}
-	router["GET"] = getRouter
-	router["POST"] = postRouter
-	router["PUT"] = putRouter
-	router["DELETE"] = deleteRouter
-	return &Core{
-		router: router,
-	}
-}
-
-func (c *Core) Get(url string, handler ControllerHandler) {
-	upperURL := strings.ToUpper(url)
-	c.router["GET"][upperURL] = handler
-}
-
-func (c *Core) POST(url string, handler ControllerHandler) {
-	upperURL := strings.ToUpper(url)
-	c.router["POST"][upperURL] = handler
-}
-
-func (c *Core) PUT(url string, handler ControllerHandler) {
-	upperURL := strings.ToUpper(url)
-	c.router["PUT"][upperURL] = handler
-}
-
-func (c *Core) DELETE(url string, handler ControllerHandler) {
-	upperURL := strings.ToUpper(url)
-	c.router["DELETE"][upperURL] = handler
+	// init router
+	router := map[string]*Tree{}
+	router["GET"] = NewTree()
+	router["POST"] = NewTree()
+	router["PUT"] = NewTree()
+	router["DELETE"] = NewTree()
+	return &Core{router: router}
 }
 
 func (c *Core) FindRouteByRequest(req *http.Request) ControllerHandler {
 	uri := req.URL.Path
 	method := req.Method
 	upperMethod := strings.ToUpper(method)
-	upperURI := strings.ToUpper(uri)
-
 	if methodHandlers, ok := c.router[upperMethod]; ok {
-		if handler, ok := methodHandlers[upperURI]; ok {
-			return handler
-		}
+		return methodHandlers.FindHandler(uri)
 	}
 	return nil
 }
 
+func (c *Core) Get(url string, handler ControllerHandler) {
+	if err := c.router["GET"].AddRouter(url, handler); err != nil {
+		log.Fatal("add router error:", err)
+	}
+}
+
+func (c *Core) POST(url string, handler ControllerHandler) {
+	if err := c.router["POST"].AddRouter(url, handler); err != nil {
+		log.Fatal("add router error:", err)
+	}
+}
+
+func (c *Core) PUT(url string, handler ControllerHandler) {
+	if err := c.router["PUT"].AddRouter(url, handler); err != nil {
+		log.Fatal("add router error:", err)
+	}
+}
+
+func (c *Core) DELETE(url string, handler ControllerHandler) {
+	if err := c.router["DELETE"].AddRouter(url, handler); err != nil {
+		log.Fatal("add router error:", err)
+	}
+}
+
 func (c *Core) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	log.Println("core.ServeHTTP")
 	//封装定义的context
 	ctx := NewContext(request, response)
 
@@ -81,5 +71,4 @@ func (c *Core) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 		ctx.Json(500, "inner error")
 		return
 	}
-	log.Println("core.ServeHTTP")
 }
